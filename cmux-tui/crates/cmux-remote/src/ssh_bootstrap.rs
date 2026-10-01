@@ -1076,14 +1076,18 @@ mod tests {
 
         let directory = tempfile::tempdir().unwrap();
         let ssh = directory.path().join("ssh");
-        std::fs::write(&ssh, r#"#!/usr/bin/env python3
+        std::fs::write(
+            &ssh,
+            r#"#!/usr/bin/env python3
 import os, select, subprocess, sys
 if select.select([0], [], [], 0)[0] and os.read(0, 1) == b'':
     sys.exit(0)
 destination = sys.argv.index('test.insta')
 command = ' '.join(sys.argv[destination + 1:])
 sys.exit(subprocess.call(['/bin/sh', '-c', command]))
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         std::fs::set_permissions(&ssh, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut config = SshBootstrapConfig::defaults("test.insta");
         config.ssh_binary = ssh.to_string_lossy().into_owned();
