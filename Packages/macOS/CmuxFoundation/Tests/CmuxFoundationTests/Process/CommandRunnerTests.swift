@@ -157,6 +157,26 @@ import Testing
         #expect(runner.resolvedCommandPath(executable: "cmux-missing-\(UUID().uuidString)") == nil)
     }
 
+    @Test func fallbackScriptCanFindItsInterpreterAndInheritedContext() async throws {
+        let files = FileManager.default
+        let directory = files.temporaryDirectory.appendingPathComponent("cmux-script-\(UUID())")
+        try files.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? files.removeItem(at: directory) }
+        let interpreter = "cmux-interpreter-\(UUID().uuidString)"
+        let helper = directory.appendingPathComponent(interpreter)
+        let script = directory.appendingPathComponent("provider")
+        try "#!/bin/sh\nprintf '%s' \"$CMUX_TEST_CONTEXT\"\n".write(to: helper, atomically: true, encoding: .utf8)
+        try "#!/usr/bin/env \(interpreter)\n".write(to: script, atomically: true, encoding: .utf8)
+        for file in [helper, script] {
+            try files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
+        }
+        let runner = CommandRunner(environment: ["PATH": "/usr/bin:/bin", "CMUX_TEST_CONTEXT": "preserved"],
+            bundledBinPath: nil, fallbackSearchDirectories: [directory.path])
+        let result = await runner.run(directory: directory.path, executable: "provider", arguments: [], timeout: 10)
+        #expect(result.exitStatus == 0)
+        #expect(result.stdout == "preserved")
+    }
+
     @Test func unresolvableCommandRunsViaEnvAndExitsNonZero() async {
         // A bare command that resolves nowhere falls back to `/usr/bin/env <cmd>`,
         // which exits non-zero (127) rather than failing to spawn. The stdout-only
