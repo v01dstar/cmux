@@ -48,9 +48,12 @@ extension AppDelegate {
                             context.tabManager.selectedTabId == selectedWorkspaceID
                                 && self.resolvedWindow(for: context)?.isKeyWindow == true
                         })
+                    if result["auth_required"] as? Bool == true {
+                        throw InstacloudError.sshAuthenticationRequired(alias)
+                    }
                     guard let rawID = result["workspace_id"] as? String, let id = UUID(uuidString: rawID),
                           let workspace = Workspace.liveWorkspace(id: id) else {
-                        throw InstacloudError.unavailable
+                        throw InstacloudError.invalidResponse
                     }
                     workspace.savedRemoteProfileID = profile.id
                 })

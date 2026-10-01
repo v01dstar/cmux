@@ -4,6 +4,8 @@ public enum InstacloudError: Error, Equatable, Sendable {
     case unavailable
     /// Login must be completed in the user's browser.
     case loginRequired
+    /// SSH needs an interactive authentication step before workspace creation can proceed.
+    case sshAuthenticationRequired(String)
     /// A command timed out; provisioning must reconcile before issuing another create.
     case timedOut
     /// The provider requires human approval for the original request.

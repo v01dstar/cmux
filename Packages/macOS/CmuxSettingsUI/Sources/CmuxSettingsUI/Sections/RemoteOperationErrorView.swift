@@ -17,6 +17,8 @@ struct RemoteOperationErrorView: View {
         switch error as? InstacloudError {
         case .loginRequired:
             return String(localized: "settings.remotes.error.login", defaultValue: "Sign in to Instacloud, then try again.")
+        case .sshAuthenticationRequired(let destination):
+            return String(format: String(localized: "settings.remotes.error.sshAuthentication", defaultValue: "SSH sign-in is required for %@. Authenticate in a local terminal, then try opening this workspace again."), destination)
         case .approvalRequired:
             return String(localized: "settings.remotes.error.approval", defaultValue: "Instacloud requires your approval. Approve the original request in Instacloud, then resume setup here.")
         case .missingVolume, .incompatibleRuntime:

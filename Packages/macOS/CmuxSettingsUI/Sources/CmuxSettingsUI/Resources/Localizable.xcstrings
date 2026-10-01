@@ -13279,6 +13279,65 @@
           }
         }
       }
+    },
+    "settings.remotes.error.sshAuthentication": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH sign-in is required for %@. Authenticate in a local terminal, then try opening this workspace again."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يلزم تسجيل الدخول عبر SSH إلى %@. أكمل المصادقة في طرفية محلية، ثم حاول فتح مساحة العمل هذه مرة أخرى."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für %@ ist eine SSH-Anmeldung erforderlich. Authentifizieren Sie sich in einem lokalen Terminal und versuchen Sie dann erneut, diesen Arbeitsbereich zu öffnen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se requiere iniciar sesión mediante SSH en %@. Autentícate en una terminal local y vuelve a intentar abrir este espacio de trabajo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une connexion SSH est nécessaire pour %@. Authentifiez-vous dans un terminal local, puis réessayez d’ouvrir cet espace de travail."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ には SSH ログインが必要です。ローカルのターミナルで認証してから、このワークスペースをもう一度開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 SSH 로그인이 필요합니다. 로컬 터미널에서 인증한 후 이 작업 공간을 다시 열어 보세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 需要 SSH 登录。请先在本地终端完成身份验证，再尝试打开此工作区。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 需要 SSH 登入。請先在本機終端機完成驗證，再嘗試開啟此工作區。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
