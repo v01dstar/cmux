@@ -1,7 +1,8 @@
 public import Foundation
 
 /// Runs external commands with `Process`, capturing output and honoring an
-/// optional deadline.
+/// optional deadline. Child processes receive the same search path used to resolve commands,
+/// so scripts can find interpreters and companion executables installed in fallback directories.
 ///
 /// This is the production ``CommandRunning``. It resolves bare command names
 /// against `PATH`, a bundled `bin` directory, and a set of fallback directories
@@ -32,7 +33,7 @@ public struct CommandRunner: CommandRunning, Sendable {
 
     /// Creates a command runner.
     /// - Parameters:
-    ///   - environment: The environment whose `PATH` is searched; defaults to the process environment.
+    ///   - environment: Child environment and initial search path; defaults to the process environment.
     ///   - bundledBinPath: An extra directory searched ahead of the fallbacks (the app's
     ///     bundled CLI directory); defaults to `Bundle.main`'s `Contents/Resources/bin`.
     ///   - fallbackSearchDirectories: Directories searched after `PATH` and the bundled bin.
@@ -81,7 +82,8 @@ public struct CommandRunner: CommandRunning, Sendable {
             let execution = try CommandExecution(
                 executableURL: executableURL,
                 arguments: resolvedArguments,
-                currentDirectoryURL: URL(fileURLWithPath: directory)
+                currentDirectoryURL: URL(fileURLWithPath: directory),
+                environment: childEnvironment
             )
             return await execution.run(timeout: timeout)
         } catch {
@@ -108,6 +110,25 @@ public struct CommandRunner: CommandRunning, Sendable {
             return fileManager.isExecutableFile(atPath: executable) ? executable : nil
         }
 
+        for directory in searchDirectories {
+            let candidate = URL(fileURLWithPath: directory, isDirectory: true)
+                .appendingPathComponent(executable)
+                .path
+            if fileManager.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    /// One search policy serves direct lookup, shebang interpreters, and child subprocesses.
+    private var childEnvironment: [String: String] {
+        var result = environment
+        result["PATH"] = searchDirectories.joined(separator: ":")
+        return result
+    }
+
+    private var searchDirectories: [String] {
         var searchDirectories: [String] = []
         var seenDirectories: Set<String> = []
 
@@ -129,14 +150,6 @@ public struct CommandRunner: CommandRunning, Sendable {
         fallbackSearchDirectories.forEach { appendSearchPath($0) }
         appendSearchPath("/usr/bin:/bin:/usr/sbin:/sbin")
 
-        for directory in searchDirectories {
-            let candidate = URL(fileURLWithPath: directory, isDirectory: true)
-                .appendingPathComponent(executable)
-                .path
-            if fileManager.isExecutableFile(atPath: candidate) {
-                return candidate
-            }
-        }
-        return nil
+        return searchDirectories
     }
 }
