@@ -79,6 +79,10 @@ extension SettingsWindowRoot {
             }
         }
 
+        slot(.remotes, proxy: proxy) {
+            if let model = hostActions.remotesSettingsModel { RemotesSection(model: model) }
+        }
+
         slot(.computers, proxy: proxy) {
             ComputersSection(hostActions: hostActions, defaultsStore: defaultsStore, catalog: catalog)
         }

@@ -117,13 +117,21 @@ struct SettingsSearchIndexTests {
         }
     }
 
-    @Test(arguments: ["mac", "tailscale", "remote"])
+    @Test(arguments: ["mac", "tailscale"])
     func devicesSectionAliasesPreserveSearchRanking(query: String) throws {
         let index = SettingsSearchIndex(catalog: SettingCatalog())
         let result = try #require(index.match(query).first { $0.kind == .section })
 
         #expect(result.id == "section:computers")
         #expect(result.anchorID == "section:computers")
+    }
+
+    @Test(arguments: ["remote", "remotes", "instacloud", "ssh"])
+    func remoteQueriesFindSavedDestinations(query: String) throws {
+        let index = SettingsSearchIndex(catalog: SettingCatalog())
+        let result = try #require(index.match(query).first { $0.kind == .section })
+        #expect(result.id == "section:remotes")
+        #expect(result.anchorID == "section:remotes")
     }
 
     /// Typing an exact section name navigates to that section first.

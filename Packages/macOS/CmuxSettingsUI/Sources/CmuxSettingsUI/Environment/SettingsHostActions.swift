@@ -1,6 +1,7 @@
 import CmuxFoundation
 import CMUXMobileCore
 import CmuxSettings
+import CmuxRemotes
 import Foundation
 
 /// Host-supplied callbacks the package's section views invoke for
@@ -17,6 +18,8 @@ import Foundation
 /// when no host action is available.
 @MainActor
 public protocol SettingsHostActions: AnyObject {
+    /// Shared saved remote destinations, supplied by the executable composition root.
+    var remotesSettingsModel: RemotesSettingsModel? { get }
     func computersSettingsActions() -> ComputersSettingsActions
     /// A registry snapshot used to populate the per-agent notification sound
     /// matrix. The host owns discovery so newly registered agents appear
@@ -445,6 +448,7 @@ public struct RightSidebarTabSettingsItem: Identifiable, Equatable, Sendable {
 }
 
 public extension SettingsHostActions {
+    var remotesSettingsModel: RemotesSettingsModel? { nil }
     /// Returns the registry-backed agent choices shown by notification sound settings.
     func notificationSoundAgentOptions() -> [NotificationSoundAgentOption] { [] }
 
