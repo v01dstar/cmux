@@ -7,7 +7,8 @@ import Foundation
 extension TerminalController {
     /// Network work suspends; only workspace/catalog mutations execute on the main actor.
     @MainActor
-    func openSSHTuiWorkspace(params: [String: Any]) async throws -> [String: Any] {
+    func openSSHTuiWorkspace(params: [String: Any], onCreated: ((Workspace) -> Void)? = nil,
+                             shouldFocus: (() -> Bool)? = nil) async throws -> [String: Any] {
         guard ManagedRemoteConnectionsPolicy.isEnabled else {
             throw SurfaceCatalogError.unsupported(ManagedRemoteConnectionsPolicy.disabledMessage)
         }
@@ -32,6 +33,7 @@ extension TerminalController {
         let provider = try coordinator.provider(connection: connection)
         guard let links = provider.links as? SSHTuiLinkManager else { throw CloudDiagnosticFailure.unsupported }
         await links.adopt(connection)
+        await links.setSuspended(false)
         do {
             // Like `ssh`, a new route reports OpenSSH's own failure in seconds
             // instead of waiting out the headless carrier's retries.
@@ -56,10 +58,11 @@ extension TerminalController {
               let workspace = Workspace.liveWorkspace(id: id) else {
             throw CloudDiagnosticFailure.response
         }
+        onCreated?(workspace)
         do {
             let initialCommand = (params["initial_command"] as? String).map(connection.commandArguments)
             try await coordinator.open(workspace: workspace, configuration: configuration, initialCommand: initialCommand)
-            if params["focus"] as? Bool != false, let panelID = workspace.focusedPanelId {
+            if params["focus"] as? Bool != false, shouldFocus?() != false, let panelID = workspace.focusedPanelId {
                 SurfacePaneFactory.focus(panelID: panelID, in: id)
             }
             var result = payload

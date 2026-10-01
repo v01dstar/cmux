@@ -15,6 +15,22 @@ public final class RemoteWorkspaceCoordinator {
         self.runtime = runtime
     }
 
+    /// Restores a saved connection only when durable reconnect intent and live runtime allow it.
+    /// - Parameters:
+    ///   id: The profile pinned in the workspace snapshot.
+    ///   connect: Attaches the existing workspace using refreshed transport configuration.
+    /// - Returns: False for removed profiles, disabled reconnect, or an intentionally stopped machine.
+    /// - Throws: Configuration, runtime, or transport failures; never starts a stopped machine.
+    public func reconnect(
+        profileID id: UUID,
+        connect: @MainActor (RemoteProfile, String) async throws -> Void
+    ) async throws -> Bool {
+        if !locations.isLoaded { try await locations.load() }
+        guard let profile = locations.configuration.profiles.first(where: { $0.id == id }),
+              profile.automaticReconnectEnabled else { return false }
+        return try await locations.withConnection(to: id, runtime: runtime, confirmStart: { _ in false }, create: connect)
+    }
+
     /// Creates at the current default unless the caller explicitly selected a menu destination.
     ///
     /// The selected workspace has no influence on this decision. Selecting a destination here

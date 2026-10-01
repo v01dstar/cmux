@@ -188,6 +188,13 @@ struct cmuxApp: App {
         let devices = MacDevicesComposition(defaults: .standard, catalog: settingsCatalog)
         let devicesRegistry = devices.registry
         let computersService = devices.computers
+        let remotes = RemotesComposition(
+            directory: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".local/state/cmux/remotes")
+                .appendingPathComponent(Bundle.main.bundleIdentifier ?? "cmux"),
+            client: (Bundle.main.resourceURL ?? Bundle.main.bundleURL).appendingPathComponent("bin/cmux-tui"),
+            beforeStop: { profileID in await AppDelegate.shared?.detachSavedRemoteWorkspaces(profileID: profileID) }
+        )
         self.settingsRuntime = SettingsRuntime(
             catalog: settingsCatalog,
             userDefaultsStore: devices.defaultsStore,
@@ -200,6 +207,7 @@ struct cmuxApp: App {
                 computerUseRuntimeService: computerUseRuntimeService,
                 browserDataImportCoordinator: browserDataImportCoordinator,
                 computersActions: devices.settingsActions,
+                remotesSettingsModel: remotes.settings,
                 runComputerUseOnboardingAction: { startingPoint in
                     AppDelegate.shared?.computerUseUXCoordinator.presentOnboardingFromSettings(
                         startingAt: startingPoint
@@ -320,7 +328,8 @@ struct cmuxApp: App {
             browserDataImportCoordinator: browserDataImportCoordinator,
             computerUseRuntimeService: computerUseRuntimeService,
             devicesRegistry: devicesRegistry,
-            computersService: computersService
+            computersService: computersService,
+            remotes: remotes
         )
         historyMenuCoordinator.refreshIfNeeded()
         StartupBreadcrumbLog.append("app.init.delegate.configured")
@@ -485,6 +494,17 @@ struct cmuxApp: App {
         }
 
         defaults.set(targetVersion, forKey: migrationKey)
+    }
+
+    private var savedRemotesFileMenu: some View {
+        // AppKit replaces this placeholder when File begins tracking. SwiftUI
+        // flattens a row's Button and Toggle into separate command items.
+        let title = String(localized: "menu.file.newWorkspace", defaultValue: "New Workspace")
+        return Menu(title) {
+            splitCommandButton(title: title, shortcut: menuShortcut(for: .newTab)) {
+                appDelegate.performNewWorkspaceAction(tabManager: activeTabManager, debugSource: "menu.file.defaultWorkspace")
+            }
+        }
     }
 
     var body: some Scene {
@@ -887,16 +907,7 @@ struct cmuxApp: App {
                     appDelegate.openNewMainWindow(nil)
                 }
 
-                splitCommandButton(title: String(localized: "menu.file.newWorkspace", defaultValue: "New Workspace"), shortcut: menuShortcut(for: .newTab)) {
-                    if let appDelegate = AppDelegate.shared {
-                        appDelegate.performNewWorkspaceAction(
-                            tabManager: activeTabManager,
-                            debugSource: "menu.newWorkspace"
-                        )
-                    } else {
-                        activeTabManager.addWorkspaceIfActive()
-                    }
-                }
+                savedRemotesFileMenu
 
                 if offersBrowserMenuItems {
                     splitCommandButton(title: String(localized: "menu.file.newBrowserWorkspace", defaultValue: "New Browser Workspace"), shortcut: menuShortcut(for: .newBrowserWorkspace)) {

@@ -9,13 +9,16 @@ public final class RemoteProvisioningCoordinator {
     private let repository: any RemoteConfigurationStoring
     private let provider: any InstacloudProviding
     private let runtime: any RemoteRuntimeServicing
+    private let schedule: RemoteStatusSchedule
+    private var connectingExisting: Set<String> = []
 
     /// Creates the coordinator with injectable provider, runtime verification, and durable journal storage.
     public init(repository: any RemoteConfigurationStoring, provider: any InstacloudProviding,
-                runtime: any RemoteRuntimeServicing) {
+                runtime: any RemoteRuntimeServicing, schedule: RemoteStatusSchedule = RemoteStatusSchedule()) {
         self.repository = repository
         self.provider = provider
         self.runtime = runtime
+        self.schedule = schedule
     }
 
     /// Reserves a stable service name and records the plan before any cloud resource is created.
@@ -106,15 +109,43 @@ public final class RemoteProvisioningCoordinator {
 
     /// Adds an existing compute only after checking identity, volume, and compatible runtime.
     /// Existing machines are never redeployed or have their image replaced during this flow.
-    public func connectExisting(name: String, locator: InstacloudLocator) async throws -> RemoteProfile {
-        _ = try await provider.verify(locator, requireVolume: true)
-        try await runtime.verifyMachine(locator, expectedDigest: nil)
+    /// - Parameters:
+    ///   name: Display name for the saved connection.
+    ///   locator: Immutable provider identity selected by the user.
+    ///   confirmStart: Explicit consent before starting an intentionally stopped machine.
+    /// - Returns: The saved profile, or nil when the user declines starting it.
+    /// - Throws: Identity, runtime, lifecycle, or persistence errors.
+    public func connectExisting(name: String, locator: InstacloudLocator,
+        confirmStart: @MainActor (InstacloudLocator) async -> Bool = { _ in false }
+    ) async throws -> RemoteProfile? {
+        guard connectingExisting.insert(locator.serviceID).inserted else {
+            throw RemoteConfigurationError.operationInProgress
+        }
+        defer { connectingExisting.remove(locator.serviceID) }
         let existing = try await repository.load().profiles.first {
             guard case .instacloud(let target) = $0.target else { return false }
             return target.projectID == locator.projectID && target.branch == locator.branch && target.serviceID == locator.serviceID
         }
-        let profile = RemoteProfile(id: existing?.id ?? UUID(), name: name, target: .instacloud(locator),
-                                    automaticReconnectEnabled: existing?.automaticReconnectEnabled ?? true)
+        // Re-adding a saved machine is idempotent and cannot wake it or race its
+        // saved profile's separate lifecycle gate.
+        if let existing { return existing }
+        _ = try await provider.verify(locator, requireVolume: true)
+        let status = try await provider.status(locator)
+        if status.isStopped {
+            guard await confirmStart(locator) else { return nil }
+            try await provider.setRunning(true, locator: locator)
+            var running = false
+            for attempt in 0..<schedule.attempts {
+                try Task.checkCancellation()
+                if try await provider.status(locator).isRunning { running = true; break }
+                if attempt + 1 < schedule.attempts { try await schedule.next() }
+            }
+            guard running else { throw InstacloudError.transitionTimedOut }
+        } else if !status.isRunning {
+            throw InstacloudError.machineNotRunning
+        }
+        try await runtime.verifyMachine(locator, expectedDigest: nil)
+        let profile = RemoteProfile(name: name, target: .instacloud(locator))
         _ = try await repository.apply(.save(profile))
         return profile
     }

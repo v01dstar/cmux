@@ -39,8 +39,13 @@ public final class RemotesSettingsModel {
     /// - Parameters:
     ///   name: User-visible connection label.
     ///   computeID: Selected existing compute, or nil to create a new machine.
+    ///   confirmStart: Requests consent if an existing machine must be started for verification.
+    /// - Returns: False if the user declines starting an existing machine.
     /// - Throws: Selection, runtime, approval, provisioning, or persistence errors.
-    public func addInstacloud(name: String, computeID: String?) async throws {
+    @discardableResult
+    public func addInstacloud(name: String, computeID: String?,
+        confirmStart: @MainActor (InstacloudLocator) async -> Bool = { _ in false }
+    ) async throws -> Bool {
         guard !isAdding else { throw RemoteConfigurationError.operationInProgress }
         let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !label.isEmpty, !discovery.isLoading,
@@ -50,7 +55,8 @@ public final class RemotesSettingsModel {
         defer { isAdding = false }
         do {
             if let computeID {
-                _ = try await provisioning.connectExisting(name: label, locator: discovery.locator(for: computeID))
+                guard try await provisioning.connectExisting(name: label, locator: discovery.locator(for: computeID),
+                    confirmStart: confirmStart) != nil else { return false }
             } else {
                 let id = try await provisioning.plan(name: label, organizationID: organizationID,
                                                      projectID: projectID, branch: branch)
@@ -59,6 +65,7 @@ public final class RemotesSettingsModel {
                 _ = try await provisioning.resume(id)
             }
             try await locations.load()
+            return true
         } catch {
             try? await locations.load()
             locations.report(error)

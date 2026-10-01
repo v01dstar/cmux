@@ -13161,6 +13161,124 @@
           }
         }
       }
+    },
+    "settings.remotes.add.start.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux must start this machine to verify its runtime. This may incur compute charges. Its existing deployment will not be replaced."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يجب أن يشغّل cmux هذا الجهاز للتحقق من بيئة تشغيله. قد تترتب على ذلك رسوم حوسبة. لن يتم استبدال النشر الحالي."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux muss diese Maschine starten, um ihre Laufzeitumgebung zu prüfen. Dabei können Compute-Kosten anfallen. Die vorhandene Bereitstellung wird nicht ersetzt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux debe iniciar esta máquina para verificar su entorno de ejecución. Esto puede generar cargos de cómputo. No se reemplazará el despliegue existente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux doit démarrer cette machine pour vérifier son environnement d’exécution. Des frais de calcul peuvent s’appliquer. Le déploiement existant ne sera pas remplacé."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ランタイムを検証するため、cmux はこのマシンを起動する必要があります。コンピューティング料金が発生する場合があります。既存のデプロイは置き換えられません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux가 런타임을 확인하려면 이 머신을 시작해야 합니다. 컴퓨팅 요금이 발생할 수 있습니다. 기존 배포는 교체되지 않습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux 需要启动这台机器以验证其运行环境。这可能产生计算费用，现有部署不会被替换。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cmux 需要啟動這台機器以驗證其執行環境。這可能產生運算費用，現有部署不會被取代。"
+          }
+        }
+      }
+    },
+    "settings.remotes.add.start.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start this machine to add it?"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هل تريد تشغيل هذا الجهاز لإضافته؟"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Maschine starten, um sie hinzuzufügen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Iniciar esta máquina para añadirla?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrer cette machine pour l’ajouter ?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このマシンを追加するために起動しますか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 머신을 추가하기 위해 시작할까요?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动这台机器以添加连接？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動這台機器以新增連線？"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -4,6 +4,7 @@ import Foundation
 actor ProvisioningTestRuntime: RemoteRuntimeServicing {
     var changed = false
     var incompatible = false
+    var verifications = 0
     func changeBundle() { changed = true }
     func rejectRuntime() { incompatible = true }
     func bundle(digest: String?) -> RemoteRuntimeBundle {
@@ -13,6 +14,7 @@ actor ProvisioningTestRuntime: RemoteRuntimeServicing {
         if changed { throw InstacloudError.bundleChanged }
     }
     func verifyMachine(_ locator: InstacloudLocator, expectedDigest: String?) throws {
+        verifications += 1
         if incompatible { throw InstacloudError.incompatibleRuntime }
     }
 }

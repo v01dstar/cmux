@@ -5,6 +5,7 @@ import CMUXMobileCore
 import CmuxWorkspaces
 import CmuxSettings
 import CmuxSettingsUI
+import CmuxRemotes
 import CmuxSwiftRenderUI
 import CmuxUpdater
 import CmuxFoundation
@@ -17,6 +18,7 @@ nonisolated private let hostSettingsLogger = Logger(subsystem: "com.cmuxterm.app
 /// Routes Settings actions to app-owned services, keeping the package independent.
 @MainActor
 final class HostSettingsActions: SettingsHostActions {
+    let remotesSettingsModel: RemotesSettingsModel?
     let computersActions: ComputersSettingsActions
     private let configFileURL: URL
     private let browserDataImportCoordinator: BrowserDataImportCoordinator
@@ -77,9 +79,11 @@ final class HostSettingsActions: SettingsHostActions {
             alert.runModal()
         },
         computersActions: ComputersSettingsActions? = nil,
+        remotesSettingsModel: RemotesSettingsModel? = nil,
         runComputerUseOnboardingAction:
             @escaping @MainActor (ComputerUseOnboardingWindowController.StartingPoint) -> Void
     ) {
+        self.remotesSettingsModel = remotesSettingsModel
         self.computersActions = computersActions ?? ComputersSettingsActions()
         self.configFileURL = configFileURL
         self.automationConfigStore = automationConfigStore

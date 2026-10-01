@@ -10,7 +10,8 @@ struct RemoteProvisioningFixture {
     let coordinator: RemoteProvisioningCoordinator
     init() {
         store = RemoteConfigurationRepository(fileURL: directory.appendingPathComponent("remotes.json"), fileManager: FileManager())
-        coordinator = RemoteProvisioningCoordinator(repository: store, provider: provider, runtime: runtime)
+        coordinator = RemoteProvisioningCoordinator(repository: store, provider: provider, runtime: runtime,
+            schedule: RemoteStatusSchedule(attempts: 3, next: {}))
     }
     func plan() async throws -> UUID {
         try await coordinator.plan(name: "My remote", organizationID: "org", projectID: "project", branch: "main")

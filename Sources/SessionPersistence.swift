@@ -1731,6 +1731,8 @@ struct SessionCloudVMBindingSnapshot: Codable, Sendable, Equatable {
 }
 
 struct SessionWorkspaceSnapshot: Codable, Sendable {
+    /// Saved remote identity used to honor durable stop intent before reconnecting.
+    var savedRemoteProfileID: UUID? = nil
     /// Original workspace ID captured when the snapshot comes from a live workspace.
     /// Restore reuses this identity when it is present and non-colliding; legacy,
     /// externally-created, or duplicate snapshots can leave it nil or force a fresh ID.

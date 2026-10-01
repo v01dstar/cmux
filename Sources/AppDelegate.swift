@@ -16,6 +16,7 @@ import CmuxNotifications
 import CmuxTerminalCore
 import CmuxTerminal
 import CmuxSettings
+import CmuxRemotes
 import CmuxSettingsUI
 import CmuxSudoBroker
 import CmuxSudoBrokerUI
@@ -852,6 +853,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Combine subscriptions that publish workspace.updated to mobile clients.
     private var mobileWorkspaceListObservers: [ObjectIdentifier: MobileWorkspaceListObserver] = [:]
     private let agentChatTranscriptService = AgentChatTranscriptService()
+    var remotes: RemotesComposition?
+    var remoteLocationFileMenuPresenter: RemoteLocationFileMenuPresenter?
+    private var remoteLocationsObservation: Task<Void, Never>?
     var settingsRuntime: SettingsRuntime?
     /// Injected before the coordinator is used; the managed-policy extension
     /// re-applies `DisableComputerUse` through it.
@@ -2605,7 +2609,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         browserDataImportCoordinator: BrowserDataImportCoordinator,
         computerUseRuntimeService: ComputerUseRuntimeService,
         devicesRegistry: DeviceSurfaceProviderRegistry? = nil,
-        computersService: HiveComputersService? = nil
+        computersService: HiveComputersService? = nil,
+        remotes: RemotesComposition? = nil
     ) {
         captureSessionLaunchStateIfNeeded()
         self.tabManager = tabManager
@@ -2618,6 +2623,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         tabDragTransferRegistryStorage = tabManager.tabDragTransferRegistry
         // Adopt the bootstrap manager's coordinators so later windows share them.
         pullRequestProbeService = tabManager.pullRequestProbeService
+        self.remotes = remotes
+        if remotes != nil {
+            remoteLocationFileMenuPresenter = RemoteLocationFileMenuPresenter(
+                center: .default, mainMenu: { NSApp.mainMenu },
+                placeholderTitle: String(localized: "menu.file.newWorkspace", defaultValue: "New Workspace")
+            ) { [weak self] item in
+                guard let self else { return }
+                let context = self.preferredMainWindowContextForWorkspaceCreation(event: nil, debugSource: "menu.file.remoteLocations")
+                self.configureSavedRemoteNewWorkspaceMenu(item, context: context, includesDefaultCommand: true)
+            }
+        } else { remoteLocationFileMenuPresenter = nil }
+        remoteLocationsObservation?.cancel()
+        if let remotes { remoteLocationsObservation = Task { await remotes.locations.observe() } }
         self.settingsRuntime = settingsRuntime
         self.notificationStore = notificationStore
         self.sidebarState = sidebarState
@@ -8613,28 +8631,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         tabManager preferredTabManager: TabManager? = nil,
         event: NSEvent? = nil,
         placementOverride: WorkspacePlacement? = nil,
-        debugSource: String = "newWorkspace"
+        debugSource: String = "newWorkspace",
+        location: RemoteLocation? = nil
     ) -> Bool {
         let context = preferredTabManager.flatMap { mainWindowContext(for: $0) }
             ?? preferredMainWindowContextForWorkspaceCreation(event: event, debugSource: debugSource)
-        let manager = context?.tabManager ?? preferredTabManager
-        if let manager, let machine = manager.selectedWorkspace?.deviceMachineForNewWorkspace {
-            return deviceWorkspaceCreationCoordinator?.start(on: machine, in: manager) ?? false
+        let createLocal = { [weak self] in
+            self?.performNewWorkspaceCreationAction(
+                initialSurface: .terminal, preferredTabManager: preferredTabManager,
+                event: event, placementOverride: placementOverride, debugSource: debugSource
+            ) ?? false
         }
-        if let manager,
-           let vmID = manager.selectedWorkspace?.cloudVMID,
-           !vmID.isEmpty {
-            // Once this intent targets a VM, an unavailable or pending cloud
-            // operation must never fall through and create a local workspace.
-            return performNewCloudWorkspaceOnCurrentMachineAction(tabManager: manager, vmID: vmID)
-        }
-        return performNewWorkspaceCreationAction(
-            initialSurface: .terminal,
-            preferredTabManager: preferredTabManager,
-            event: event,
-            placementOverride: placementOverride,
-            debugSource: debugSource
-        )
+        guard remotes != nil else { return createLocal() }
+        return performSavedNewWorkspaceAction(at: location, context: context, createLocal: createLocal)
     }
 
     /// Empty-area double-click in the sidebar. A configured
@@ -8643,27 +8652,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// after the last row, which is what clicking below every row asks for.
     @discardableResult
     func performSidebarEmptyAreaNewWorkspaceAction(tabManager: TabManager) -> Bool {
-        // A remote-tmux mirror or remote Mac creates its workspace on the
-        // remote side, which decides placement, so the end-of-list override
-        // does not apply there. Gate on the SELECTED workspace, not
-        // `tabs.contains`: a dedicated remote window can be polluted with a
-        // dragged-in local workspace (move targets don't exclude dedicated
-        // windows), and `contains` would then misroute a local empty-area
-        // double-click into spawning an unwanted tmux session.
-        if sidebarEmptyAreaUsesRemoteNewWorkspaceRouting(tabManager: tabManager) {
-            return performNewWorkspaceAction(
-                tabManager: tabManager,
-                debugSource: "sidebar.emptyArea.remote"
-            )
-        }
-        if sidebarEmptyAreaHasConfiguredNewWorkspaceAction(tabManager: tabManager) {
-            return performNewWorkspaceAction(
-                tabManager: tabManager,
-                placementOverride: .end,
-                debugSource: "sidebar.emptyArea"
-            )
-        }
-        return tabManager.addWorkspaceIfActive(placementOverride: .end) != nil
+        performNewWorkspaceAction(tabManager: tabManager, placementOverride: .end, debugSource: "sidebar.emptyArea")
     }
 
     /// Whether a sidebar empty-area creation targets a remote-tmux mirror or a
@@ -10488,6 +10477,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         initialWorkspaceTitle: String? = nil,
         initialWorkingDirectory: String? = nil,
         initialTerminalInput: String? = nil,
+        createInitialWorkspace: Bool = true,
         sessionWindowSnapshot: SessionWindowSnapshot? = nil,
         preferredWindowId: UUID? = nil,
         shouldActivate: Bool = true,
@@ -10515,6 +10505,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             initialWorkingDirectory: initialWorkingDirectory,
             initialTerminalInput: initialTerminalInput,
             autoWelcomeIfNeeded: initialTerminalInput == nil,
+            createInitialWorkspace: createInitialWorkspace,
             tabDragTransferRegistry: tabDragTransferRegistry,
             pullRequestProbeService: pullRequestProbeService,
             workspaceCustomizationStore: self.tabManager?.workspaceCustomizationStore

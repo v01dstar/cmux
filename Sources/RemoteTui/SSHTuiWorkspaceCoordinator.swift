@@ -197,6 +197,15 @@ final class SSHTuiWorkspaceCoordinator {
               ManagedRemoteConnectionsPolicy.isEnabled else { throw CancellationError() }
     }
 
+    /// Cancels shared transport retries before the provider stops the machine.
+    func suspend(workspace: Workspace) async {
+        disconnect(workspace: workspace)
+        guard let configuration = workspace.remoteConfiguration,
+              let provider = try? provider(connection: SSHTuiConnection(configuration: configuration)),
+              let manager = provider.links as? SSHTuiLinkManager else { return }
+        await manager.setSuspended(true)
+    }
+
     func disconnect(workspace: Workspace) {
         workspace.sshTuiConnectionAttemptID = nil
         attempts.removeValue(forKey: workspace.id)?.cancel()

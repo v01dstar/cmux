@@ -12,6 +12,8 @@ struct AddRemoteSheet: View {
     @State private var computeID = ""
     @State private var submitting = false
     @State private var error: (any Error)?
+    @State private var showsStartConfirmation = false
+    @State private var startContinuation: CheckedContinuation<Bool, Never>?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -20,12 +22,14 @@ struct AddRemoteSheet: View {
             Picker(String(localized: "settings.remotes.connection", defaultValue: "Connection"), selection: $usesSSH) {
                 Text(String(localized: "settings.remotes.instacloud", defaultValue: "Instacloud Machine")).tag(false)
                 Text(String(localized: "settings.remotes.ssh", defaultValue: "SSH Host")).tag(true)
-            }.pickerStyle(.segmented)
+            }.pickerStyle(.segmented).disabled(submitting)
             TextField(String(localized: "settings.remotes.name", defaultValue: "Name"), text: $name)
                 .accessibilityIdentifier("RemoteDisplayName")
+                .disabled(submitting)
             if usesSSH {
                 TextField(String(localized: "settings.remotes.host", defaultValue: "SSH host or user@host"), text: $destination)
                     .accessibilityIdentifier("RemoteSSHHost")
+                    .disabled(submitting)
             } else {
                 cloudFields
             }
@@ -47,6 +51,16 @@ struct AddRemoteSheet: View {
         .onChange(of: model.discovery.projectID) { _, _ in computeID = "" }
         .onChange(of: model.discovery.branch) { _, _ in computeID = "" }
         .interactiveDismissDisabled(submitting)
+        .alert(String(localized: "settings.remotes.add.start.title", defaultValue: "Start this machine to add it?"), isPresented: $showsStartConfirmation) {
+            Button(String(localized: "settings.remotes.start", defaultValue: "Start")) { resolveStart(true) }
+            Button(String(localized: "settings.remotes.cancel", defaultValue: "Cancel"), role: .cancel) { resolveStart(false) }
+        } message: {
+            Text(String(localized: "settings.remotes.add.start.message", defaultValue: "cmux must start this machine to verify its runtime. This may incur compute charges. Its existing deployment will not be replaced."))
+        }
+        .onChange(of: showsStartConfirmation) { _, shown in
+            if !shown { resolveStart(false) }
+        }
+        .onDisappear { resolveStart(false) }
     }
 
     private var cloudFields: some View {
@@ -109,9 +123,23 @@ struct AddRemoteSheet: View {
             defer { submitting = false }
             do {
                 if selectedSSH { try await model.addSSH(name: selectedName, destination: selectedHost) }
-                else { try await model.addInstacloud(name: selectedName, computeID: selectedCompute) }
+                else {
+                    guard try await model.addInstacloud(name: selectedName, computeID: selectedCompute, confirmStart: { _ in
+                        await withCheckedContinuation { continuation in
+                            startContinuation = continuation
+                            showsStartConfirmation = true
+                        }
+                    }) else { return }
+                }
                 dismiss()
             } catch { self.error = error }
         }
+    }
+
+    private func resolveStart(_ approved: Bool) {
+        let continuation = startContinuation
+        startContinuation = nil
+        showsStartConfirmation = false
+        continuation?.resume(returning: approved)
     }
 }

@@ -22,6 +22,8 @@ extension AppDelegate {
             menuAction: CmuxResolvedConfigMenuAction,
             isDefault: Bool
         ) -> NSMenuItem {
+            if case .builtIn(.newWorkspace) = menuAction.action.action,
+               let remoteMenu = savedRemoteNewWorkspaceMenu(context: context) { return remoteMenu }
             let item = NSMenuItem(
                 title: menuAction.title,
                 action: #selector(performNewWorkspaceContextMenuItem(_:)),
@@ -243,8 +245,7 @@ extension AppDelegate {
     /// `KeyboardShortcutSettings` binding for built-in actions, else the
     /// `shortcut` declared on a config action. Nil when unbound or when the
     /// binding is a chord, which an `NSMenuItem` key equivalent cannot show.
-    /// New Workspace has no hint: this row always creates locally, while its
-    /// shortcut follows the selected workspace's machine.
+    /// New Workspace is a destination submenu; its shortcut creates at the saved default.
     nonisolated static func newWorkspaceMenuShortcutHint(
         for action: CmuxResolvedConfigAction
     ) -> StoredShortcut? {

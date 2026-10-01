@@ -4,6 +4,64 @@ import Testing
 
 @MainActor
 struct RemoteProvisioningTests {
+    private var existingLocator: InstacloudLocator {
+        InstacloudLocator(organizationID: "org", projectID: "project", branch: "main", serviceID: "service", serviceName: "existing")
+    }
+
+    @Test func decliningStartDoesNotInspectOrSaveExistingMachine() async throws {
+        let fixture = RemoteProvisioningFixture(); defer { fixture.cleanup() }
+        try await fixture.provider.insert(name: "existing")
+        await fixture.provider.setStatuses([("suspended", "stopped")])
+        var prompted = false
+        let profile = try await fixture.coordinator.connectExisting(name: "Existing", locator: existingLocator) { locator in
+            #expect(locator == self.existingLocator)
+            prompted = true
+            return false
+        }
+        #expect(prompted)
+        #expect(profile == nil)
+        #expect(await fixture.provider.runningMutations.isEmpty)
+        #expect(await fixture.runtime.verifications == 0)
+        #expect(try await fixture.store.load().profiles.isEmpty)
+    }
+
+    @Test func startsExistingOnceThenVerifiesWithoutDeploying() async throws {
+        let fixture = RemoteProvisioningFixture(); defer { fixture.cleanup() }
+        try await fixture.provider.insert(name: "existing")
+        await fixture.provider.setStatuses([("suspended", "stopped"), ("starting", "running"), ("running", "running")])
+        let profile = try await fixture.coordinator.connectExisting(name: "Existing", locator: existingLocator) { _ in true }
+        #expect(profile?.target == .instacloud(existingLocator))
+        #expect(await fixture.provider.runningMutations == [true])
+        #expect(await fixture.provider.deployments == 0)
+        #expect(await fixture.runtime.verifications == 1)
+        #expect(try await fixture.store.load().defaultLocation == .local)
+    }
+
+    @Test func existingStartTimeoutDoesNotSaveOrRepeatStart() async throws {
+        let fixture = RemoteProvisioningFixture(); defer { fixture.cleanup() }
+        try await fixture.provider.insert(name: "existing")
+        await fixture.provider.setStatuses([("suspended", "stopped"), ("starting", "running")])
+        await #expect(throws: InstacloudError.transitionTimedOut) {
+            try await fixture.coordinator.connectExisting(name: "Existing", locator: existingLocator) { _ in true }
+        }
+        #expect(await fixture.provider.runningMutations == [true])
+        #expect(await fixture.runtime.verifications == 0)
+        #expect(try await fixture.store.load().profiles.isEmpty)
+    }
+
+    @Test func readdingSavedMachinePreservesStopIntent() async throws {
+        let fixture = RemoteProvisioningFixture(); defer { fixture.cleanup() }
+        let saved = RemoteProfile(name: "Saved", target: .instacloud(existingLocator), automaticReconnectEnabled: false)
+        _ = try await fixture.store.apply(.save(saved))
+        let profile = try await fixture.coordinator.connectExisting(name: "Another name", locator: existingLocator) { _ in
+            Issue.record("Already-saved machines must not ask to start"); return true
+        }
+        #expect(profile == saved)
+        #expect(await fixture.provider.runningMutations.isEmpty)
+        #expect(await fixture.runtime.verifications == 0)
+        #expect(try await fixture.store.load().profiles.count == 1)
+    }
+
     @Test func lostCreateResponseReconcilesWithoutSecondMachine() async throws {
         let fixture = RemoteProvisioningFixture(); defer { fixture.cleanup() }
         await fixture.provider.configure(lostCreate: true)

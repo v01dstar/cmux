@@ -14,6 +14,7 @@ actor SSHTuiLinkManager: RemoteTuiLinkManaging {
     private let isEnabled: @Sendable () -> Bool
     /// Read at each carrier start, so an Integrations toggle applies on the next connect.
     private let agentHookProviders: @Sendable () -> [String]
+    private var suspended = false
     private var current: CloudMachineLink?
     private var connecting: Task<CloudMachineLink.Connected, Error>?
     private var checking: Task<Void, Error>?
@@ -39,7 +40,7 @@ actor SSHTuiLinkManager: RemoteTuiLinkManaging {
     /// for a host or an agent that comes back, with one login per link.
     func connected(machineID: String, preflight: Bool) async throws -> CloudMachineLink.Connected {
         guard machineID == connection.id else { throw CancellationError() }
-        guard isEnabled() else { await disconnect(); throw CancellationError() }
+        guard isEnabled(), !suspended else { await disconnect(); throw CancellationError() }
         if let current, await current.isConnected, let ready = await current.connected { return ready }
         // The preflight spends from a new carrier's startup budget, which the
         // socket call's own deadline was sized around. A carrier a restore
@@ -56,7 +57,7 @@ actor SSHTuiLinkManager: RemoteTuiLinkManaging {
             let failure: Error?
             do { try await check.value; failure = nil } catch { failure = error }
             try Task.checkCancellation()
-            guard isEnabled() else { await disconnect(); throw CancellationError() }
+            guard isEnabled(), !suspended else { await disconnect(); throw CancellationError() }
             // A carrier that logged in meanwhile answers the open, whatever
             // the check reported before it.
             if let current, await current.isConnected, let ready = await current.connected { return ready }
@@ -76,7 +77,7 @@ actor SSHTuiLinkManager: RemoteTuiLinkManaging {
         defer { if connecting == attempt { connecting = nil } }
         do {
             let ready = try await attempt.value
-            guard connecting == attempt, !attempt.isCancelled, isEnabled() else { throw CancellationError() }
+            guard connecting == attempt, !attempt.isCancelled, isEnabled(), !suspended else { throw CancellationError() }
             return ready
         } catch {
             await link.disconnect()
@@ -145,6 +146,12 @@ actor SSHTuiLinkManager: RemoteTuiLinkManaging {
     }
 
     /// Detaching a Mac closes its carrier, never the daemon or its terminal processes.
+    /// A user-requested compute stop blocks all carrier and browser retries until an explicit open.
+    func setSuspended(_ value: Bool) async {
+        suspended = value
+        if value { await disconnect() }
+    }
+
     func disconnect() async {
         let previous = current
         current = nil

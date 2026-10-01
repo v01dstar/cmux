@@ -5,6 +5,9 @@ actor ProvisioningTestProvider: InstacloudProviding {
     var inventory: [InstacloudCompute] = []
     var creations = 0
     var deployments = 0
+    var runningMutations: [Bool] = []
+    var statuses: [(String, String)] = [("running", "running")]
+    func setStatuses(_ samples: [(String, String)]) { statuses = samples }
     var loseCreateResponse = false
     var createNeverVisible = false
     var requireApproval = false
@@ -41,8 +44,12 @@ actor ProvisioningTestProvider: InstacloudProviding {
     func organizations() throws -> [InstacloudResource] { throw InstacloudError.unavailable }
     func projects(organizationID: String) throws -> [InstacloudResource] { throw InstacloudError.unavailable }
     func branches(projectID: String) throws -> [InstacloudResource] { throw InstacloudError.unavailable }
-    func status(_ locator: InstacloudLocator) throws -> InstacloudComputeStatus { throw InstacloudError.unavailable }
-    func setRunning(_ running: Bool, locator: InstacloudLocator) throws { throw InstacloudError.unavailable }
+    func status(_ locator: InstacloudLocator) throws -> InstacloudComputeStatus {
+        let sample = statuses.count > 1 ? statuses.removeFirst() : statuses[0]
+        let data = try JSONSerialization.data(withJSONObject: ["state": sample.0, "desiredState": sample.1])
+        return try JSONDecoder().decode(InstacloudComputeStatus.self, from: data)
+    }
+    func setRunning(_ running: Bool, locator: InstacloudLocator) { runningMutations.append(running) }
     func delete(_ locator: InstacloudLocator) throws { throw InstacloudError.unavailable }
     func prepareSSH(_ locator: InstacloudLocator) throws -> String { throw InstacloudError.unavailable }
 }

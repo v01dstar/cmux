@@ -48,7 +48,7 @@ public struct RemotesSection: View {
                 }
             }.padding(14)
         }
-        .task { refresh() }
+        .task { refresh(clearError: false) }
         .sheet(isPresented: $showsAdd) { AddRemoteSheet(model: model) }
         .confirmationDialog(String(localized: "settings.remotes.stop.title", defaultValue: "Stop this machine?"),
             isPresented: Binding(get: { pendingStop != nil }, set: { if !$0 { pendingStop = nil } }), titleVisibility: .visible) {
@@ -117,8 +117,8 @@ public struct RemotesSection: View {
             : String(localized: "settings.remotes.notSelected", defaultValue: "Not selected"))
     }
 
-    private func refresh() {
-        run {
+    private func refresh(clearError: Bool = true) {
+        run(clearError: clearError) {
             try await model.locations.load()
             for profile in model.locations.configuration.profiles {
                 if case .instacloud = profile.target {
@@ -128,8 +128,8 @@ public struct RemotesSection: View {
         }
     }
 
-    private func run(_ action: @escaping @MainActor () async throws -> Void) {
-        model.locations.clearError()
+    private func run(clearError: Bool = true, _ action: @escaping @MainActor () async throws -> Void) {
+        if clearError { model.locations.clearError() }
         Task { do { try await action() } catch { model.locations.report(error) } }
     }
 

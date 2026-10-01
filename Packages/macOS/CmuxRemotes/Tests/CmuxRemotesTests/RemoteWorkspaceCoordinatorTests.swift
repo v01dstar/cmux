@@ -114,4 +114,27 @@ struct RemoteWorkspaceCoordinatorTests {
         #expect(fixture.model.configuration.defaultLocation == .local)
         #expect(await fixture.provider.observations == 0)
     }
+    @Test func restoreHonorsDurableStopIntentBeforeAnyProviderCall() async throws {
+        let fixture = try await RemoteLifecycleFixture(statuses: [], reconnect: false)
+        defer { fixture.removeFiles() }
+        let router = RemoteWorkspaceCoordinator(locations: fixture.model, runtime: ProvisioningTestRuntime())
+        let connected = try await router.reconnect(profileID: fixture.profile.id) { _, _ in
+            Issue.record("Stopped workspace must stay detached")
+        }
+        #expect(!connected)
+        #expect(await fixture.provider.observations == 0)
+        #expect(await fixture.provider.sshPreparations == 0)
+    }
+
+    @Test func restoreNeverStartsMachineStoppedOutsideCmux() async throws {
+        let fixture = try await RemoteLifecycleFixture(statuses: [("suspended", "stopped")])
+        defer { fixture.removeFiles() }
+        let router = RemoteWorkspaceCoordinator(locations: fixture.model, runtime: ProvisioningTestRuntime())
+        let connected = try await router.reconnect(profileID: fixture.profile.id) { _, _ in
+            Issue.record("Externally stopped machine must not connect")
+        }
+        #expect(!connected)
+        #expect(await fixture.provider.mutations.isEmpty)
+    }
+
 }

@@ -206,6 +206,7 @@ extension Workspace {
             cloudMachineTeams: cloudMachineTeamsForSession,
             environment: workspaceEnvironment.isEmpty ? nil : workspaceEnvironment
         )
+        snapshot.savedRemoteProfileID = savedRemoteProfileID
         snapshot.captureTodoState(from: self)
         snapshot.dock = _dockSplit?.sessionSnapshot(
             includeScrollback: includeScrollback,
@@ -274,6 +275,7 @@ extension Workspace {
         restoredPanelTitleBoundariesByPanelId.removeAll(keepingCapacity: false)
         panelShellActivityStates.removeAll(keepingCapacity: false)
 
+        savedRemoteProfileID = snapshot.savedRemoteProfileID
         let restoredRemoteConfiguration = snapshot.remote?.workspaceConfiguration(
             localSocketPath: TerminalController.shared.currentSocketPathForRemoteRestore()
         )
@@ -284,8 +286,14 @@ extension Workspace {
             )
             configureRemoteConnection(
                 restoredRemoteConfiguration,
-                autoConnect: shouldAutoConnect
+                autoConnect: shouldAutoConnect && savedRemoteProfileID == nil
             )
+            if shouldAutoConnect, savedRemoteProfileID != nil {
+                Task { [weak self] in
+                    guard let self else { return }
+                    await AppDelegate.shared?.restoreSavedRemoteWorkspace(self, configuration: restoredRemoteConfiguration)
+                }
+            }
         } else {
             disconnectRemoteConnection(clearConfiguration: true)
         }
@@ -3124,6 +3132,8 @@ final class Workspace: Identifiable, ObservableObject, FilePreviewTabMetadataHos
     }
     @Published var surfaceListeningPorts: [UUID: [Int]] = [:]
     var agentListeningPorts: [Int] = []
+    /// Stable saved machine identity; closing the workspace does not change its cloud lifecycle.
+    var savedRemoteProfileID: UUID?
     @Published var remoteConfiguration: WorkspaceRemoteConfiguration? {
         didSet {
             // Window titles append the host (`hostLabel`); refresh them only when
