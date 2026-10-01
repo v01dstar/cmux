@@ -78,7 +78,7 @@ struct InstacloudCLITests {
 
     @Test func successfulRuntimeEnvelopeDecodesOnlyProbeOutput() async throws {
         let inspection = #"{"kind":"cmux-instacloud-v1","digest":"abc","mounted":true,"home":"/data/home","workspace":"/data/workspace","ready":true,"binary":{"app":"cmux-tui","build_identity":"revision","distribution_version":"0.1.0","remote_protocol":5,"os":"linux"}}"#
-        let data = try JSONSerialization.data(withJSONObject: ["exitCode": 0, "stdout": inspection, "stderr": "", "truncated": false])
+        let data = try JSONSerialization.data(withJSONObject: ["exitCode": 0, "stdout": inspection, "stderr": ""])
         let runner = ScriptedInstacloudRunner([.ok("{}"), .ok(service()),
             .ok(#"{"state":"running","desiredState":"running"}"#), .ok(String(decoding: data, as: UTF8.self))])
         let result = try await client(runner).inspectRuntime(locator)
