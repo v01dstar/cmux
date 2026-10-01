@@ -145,7 +145,7 @@ public actor InstacloudCLI: InstacloudProviding, RemoteRuntimeProbing {
         } catch InstacloudError.commandFailed(_) {
             throw InstacloudError.incompatibleRuntime
         }
-        guard envelope.exitCode == 0, !envelope.truncated,
+        guard envelope.exitCode == 0, envelope.truncated != true,
               let data = envelope.stdout.data(using: .utf8),
               let inspection = try? JSONDecoder().decode(RemoteRuntimeInspection.self, from: data) else {
             throw InstacloudError.incompatibleRuntime
@@ -161,7 +161,7 @@ public actor InstacloudCLI: InstacloudProviding, RemoteRuntimeProbing {
     private struct RuntimeExecEnvelope: Decodable, Sendable {
         let exitCode: Int
         let stdout: String
-        let truncated: Bool
+        let truncated: Bool?
     }
 
     private func statusAfterVerification(_ locator: InstacloudLocator) async throws -> InstacloudComputeStatus {
