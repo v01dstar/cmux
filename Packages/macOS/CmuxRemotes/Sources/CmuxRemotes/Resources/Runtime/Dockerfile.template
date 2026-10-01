@@ -1,0 +1,20 @@
+FROM rust:1.95.0-bookworm AS build
+RUN apt-get update && apt-get install -y --no-install-recommends clang libclang-dev pkg-config cmake git curl ca-certificates xz-utils && rm -rf /var/lib/apt/lists/*
+COPY install-zig.sh /tmp/install-zig.sh
+RUN sh /tmp/install-zig.sh
+ENV PATH="/opt/zig:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+RUN git init /src && cd /src && git remote add origin {{repository}} && git fetch --depth=1 origin {{revision}} && git checkout --detach FETCH_HEAD && git submodule update --init --depth=1 ghostty
+WORKDIR /src/cmux-tui
+RUN cargo build --locked --release -p cmux-tui && strip target/release/cmux-tui
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates curl git openssh-client python3 procps util-linux tmux less && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/cmux-tui/target/release/cmux-tui /opt/cmux/bin/cmux-tui
+COPY runtime.json /opt/cmux/runtime.json
+COPY entrypoint.sh health.py /opt/cmux/
+RUN chmod 755 /opt/cmux/entrypoint.sh && rm -rf /root && ln -s /data/home /root && ln -s /data/workspace /workspace
+ENV HOME=/data/home XDG_STATE_HOME=/data/home/.local/state XDG_CONFIG_HOME=/data/home/.config XDG_CACHE_HOME=/data/home/.cache
+ENV PATH="/data/home/.local/bin:/opt/cmux/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+WORKDIR /
+EXPOSE 8080
+ENTRYPOINT ["/opt/cmux/entrypoint.sh"]

@@ -5,7 +5,7 @@ import Foundation
 ///
 /// No shell strings are constructed. Project links live in isolated directories;
 /// credentials and coding-agent environment variables are neither copied nor stripped.
-public actor InstacloudCLI: InstacloudProviding {
+public actor InstacloudCLI: InstacloudProviding, RemoteRuntimeProbing {
     private let commands: any CommandRunning
     private let root: URL
     private let executable: String
@@ -123,9 +123,45 @@ public actor InstacloudCLI: InstacloudProviding {
     public func prepareSSH(_ locator: InstacloudLocator) async throws -> String {
         _ = try await verify(locator, requireVolume: true)
         let directory = try await context(locator.projectID)
-        _ = try await execute(["compute", "ssh", locator.serviceName, "--branch", locator.branch,
+        let setup: SSHSetupEnvelope = try await json(["compute", "ssh", locator.serviceName, "--branch", locator.branch,
                                "--setup", "--json"], directory: directory, timeout: 90)
-        return locator.serviceName + ".insta"
+        guard setup.configured, setup.alias == locator.serviceName + ".insta" else {
+            throw InstacloudError.invalidResponse
+        }
+        return setup.alias
+    }
+
+    /// Inspects only a running, verified compute; exec must not implicitly wake a stopped machine.
+    public func inspectRuntime(_ locator: InstacloudLocator) async throws -> RemoteRuntimeInspection {
+        _ = try await verify(locator, requireVolume: true)
+        guard try await statusAfterVerification(locator).isRunning else {
+            throw InstacloudError.machineNotRunning
+        }
+        let directory = try await context(locator.projectID)
+        let envelope: RuntimeExecEnvelope
+        do {
+            envelope = try await json(["compute", "exec", locator.serviceName, "--branch", locator.branch,
+                "--json", "--", "python3", "-c", RemoteRuntimeProbeScript().source], directory: directory, timeout: 90)
+        } catch InstacloudError.commandFailed(_) {
+            throw InstacloudError.incompatibleRuntime
+        }
+        guard envelope.exitCode == 0, !envelope.truncated,
+              let data = envelope.stdout.data(using: .utf8),
+              let inspection = try? JSONDecoder().decode(RemoteRuntimeInspection.self, from: data) else {
+            throw InstacloudError.incompatibleRuntime
+        }
+        return inspection
+    }
+
+    private struct SSHSetupEnvelope: Decodable, Sendable {
+        let alias: String
+        let configured: Bool
+    }
+
+    private struct RuntimeExecEnvelope: Decodable, Sendable {
+        let exitCode: Int
+        let stdout: String
+        let truncated: Bool
     }
 
     private func statusAfterVerification(_ locator: InstacloudLocator) async throws -> InstacloudComputeStatus {

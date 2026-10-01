@@ -7,7 +7,7 @@ let package = Package(
     products: [.library(name: "CmuxRemotes", targets: ["CmuxRemotes"])],
     dependencies: [.package(path: "../CmuxFoundation")],
     targets: [
-        .target(name: "CmuxRemotes", dependencies: ["CmuxFoundation"], swiftSettings: [.swiftLanguageMode(.v6)]),
+        .target(name: "CmuxRemotes", dependencies: ["CmuxFoundation"], resources: [.copy("Resources/Runtime")], swiftSettings: [.swiftLanguageMode(.v6)]),
         .testTarget(name: "CmuxRemotesTests", dependencies: ["CmuxRemotes", "CmuxFoundation"]),
     ]
 )
