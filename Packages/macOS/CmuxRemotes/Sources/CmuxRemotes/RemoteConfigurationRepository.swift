@@ -35,7 +35,9 @@ public actor RemoteConfigurationRepository: RemoteConfigurationStoring {
                                   attributes: [.posixPermissions: 0o700])
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(next).write(to: fileURL, options: [.atomic, .completeFileProtectionUnlessOpen])
+        // Background lifecycle and restore must read a closed file after the
+        // user's first unlock, including while the screen is subsequently locked.
+        try encoder.encode(next).write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         try files.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
         cached = next
         for observer in observers.values { observer.yield(next) }
