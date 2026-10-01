@@ -232,6 +232,9 @@
          location = "group:CmuxRemoteDaemon">
       </FileRef>
       <FileRef
+         location = "group:CmuxRemotes">
+      </FileRef>
+      <FileRef
          location = "group:CmuxRemoteSession">
       </FileRef>
       <FileRef
