@@ -18,6 +18,7 @@ let package = Package(
         .package(path: "../../Shared/CMUXMobileCore"),
         .package(path: "../CmuxFoundation"),
         .package(path: "../CmuxSettings"),
+        .package(path: "../CmuxRemotes"),
     ],
     targets: [
         .target(
@@ -26,6 +27,7 @@ let package = Package(
                 "CMUXMobileCore",
                 .product(name: "CmuxFoundation", package: "CmuxFoundation"),
                 .product(name: "CmuxSettings", package: "CmuxSettings"),
+                .product(name: "CmuxRemotes", package: "CmuxRemotes"),
             ],
             resources: [
                 .process("Resources/Localizable.xcstrings"),

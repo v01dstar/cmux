@@ -8,6 +8,7 @@ actor LifecycleTestProvider: InstacloudProviding {
     var reconnectAtMutation: [Bool] = []
     var observations = 0
     var deletions = 0
+    var sshPreparations = 0
     init(repository: any RemoteConfigurationStoring, statuses: [(String, String)]) {
         self.repository = repository
         self.samples = statuses
@@ -34,5 +35,8 @@ actor LifecycleTestProvider: InstacloudProviding {
     func computes(projectID: String, branch: String) throws -> [InstacloudCompute] { throw InstacloudError.unavailable }
     func create(_ operation: RemoteProvisioningOperation) throws -> InstacloudCompute { throw InstacloudError.unavailable }
     func deploy(_ locator: InstacloudLocator, bundleDirectory: URL) throws { throw InstacloudError.unavailable }
-    func prepareSSH(_ locator: InstacloudLocator) throws -> String { throw InstacloudError.unavailable }
+    func prepareSSH(_ locator: InstacloudLocator) -> String {
+        sshPreparations += 1
+        return "dev.insta"
+    }
 }

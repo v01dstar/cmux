@@ -1399,6 +1399,8 @@
 		CF6237863B42421E82388C27 /* CmuxPopoverGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96063440572D43F6AB2B499D /* CmuxPopoverGroupTests.swift */; };
 		A5C0DE0000000000000000A3 /* CMUXProjectModel in Frameworks */ = {isa = PBXBuildFile; productRef = A5C0DE0000000000000000A2 /* CMUXProjectModel */; };
 		CC0DE10000000000000000A3 /* CmuxRemoteDaemon in Frameworks */ = {isa = PBXBuildFile; productRef = CC0DE10000000000000000A2 /* CmuxRemoteDaemon */; };
+		A19CDB200000000000000003 /* CmuxRemotes in Frameworks */ = {isa = PBXBuildFile; productRef = A19CDB200000000000000002 /* CmuxRemotes */; };
+		A19CDB200000000000000004 /* CmuxRemotes in Frameworks */ = {isa = PBXBuildFile; productRef = A19CDB200000000000000002 /* CmuxRemotes */; };
 		CC0DE30000000000000000A3 /* CmuxRemoteSession in Frameworks */ = {isa = PBXBuildFile; productRef = CC0DE30000000000000000A2 /* CmuxRemoteSession */; };
 		CC0DE20000000000000000A3 /* CmuxRemoteWorkspace in Frameworks */ = {isa = PBXBuildFile; productRef = CC0DE20000000000000000A2 /* CmuxRemoteWorkspace */; };
 		A9F200000000000000000005 /* CmuxRuntimeDebugCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F100000000000000000005 /* CmuxRuntimeDebugCapture.swift */; };
@@ -8632,6 +8634,7 @@
 				F0C0A1000000000000000003 /* CmuxPhonePush in Frameworks */,
 				A5C0DE0000000000000000A3 /* CMUXProjectModel in Frameworks */,
 				CC0DE10000000000000000A3 /* CmuxRemoteDaemon in Frameworks */,
+				A19CDB200000000000000003 /* CmuxRemotes in Frameworks */,
 				CC0DE30000000000000000A3 /* CmuxRemoteSession in Frameworks */,
 				CC0DE20000000000000000A3 /* CmuxRemoteWorkspace in Frameworks */,
 				CE57E10000000000000000B3 /* CmuxSentryReporting in Frameworks */,
@@ -8690,6 +8693,7 @@
 				CC0DE00000000000000000A5 /* CmuxCore in Frameworks */,
 				C85390090000000000000003 /* CMUXDebugLog in Frameworks */,
 				CF00F00000000000000000A4 /* CmuxFoundation in Frameworks */,
+				A19CDB200000000000000004 /* CmuxRemotes in Frameworks */,
 				CE57E10000000000000000B4 /* CmuxSentryReporting in Frameworks */,
 				CE57E10000000000000000A4 /* CmuxSentryScrubbing in Frameworks */,
 				CD0CFE5700000000CD0CFE57 /* CmuxSettings in Frameworks */,
@@ -13192,6 +13196,7 @@
 				CDFEED0200000000CDFEED02 /* CmuxUpdater */,
 				CDFEED0500000000CDFEED05 /* CmuxUpdaterUI */,
 				CF00F00000000000000000A2 /* CmuxFoundation */,
+				A19CDB200000000000000002 /* CmuxRemotes */,
 				C01E00AA00000000000000A2 /* CmuxSyntaxHighlighting */,
 				D0F1A0000000000000000002 /* CmuxFilePreviewCore */,
 				D0F2A0000000000000000002 /* CmuxCloudBannerCore */,
@@ -13240,6 +13245,7 @@
 				C51A700000000000000000A2 /* CmuxSimulator */,
 				CD0CFE5200000000CD0CFE52 /* CmuxSettings */,
 				CF00F00000000000000000A2 /* CmuxFoundation */,
+				A19CDB200000000000000002 /* CmuxRemotes */,
 				CE57E10000000000000000B2 /* CmuxSentryReporting */,
 				CE57E10000000000000000A2 /* CmuxSentryScrubbing */,
 			);
@@ -13461,6 +13467,7 @@
 				CDFEED0100000000CDFEED01 /* XCLocalSwiftPackageReference "CmuxUpdater" */,
 				CDFEED0400000000CDFEED04 /* XCLocalSwiftPackageReference "CmuxUpdaterUI" */,
 				CF00F00000000000000000A1 /* XCLocalSwiftPackageReference "CmuxFoundation" */,
+				A19CDB200000000000000001 /* XCLocalSwiftPackageReference "CmuxRemotes" */,
 				C01E00AA00000000000000A1 /* XCLocalSwiftPackageReference "CmuxSyntaxHighlighting" */,
 				D0F1A0000000000000000001 /* XCLocalSwiftPackageReference "CmuxFilePreviewCore" */,
 				D0F2A0000000000000000001 /* XCLocalSwiftPackageReference "CmuxCloudBannerCore" */,
@@ -18714,6 +18721,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/macOS/CmuxFoundation;
 		};
+		A19CDB200000000000000001 /* XCLocalSwiftPackageReference "CmuxRemotes" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/macOS/CmuxRemotes;
+		};
 		C01E00AA00000000000000A1 /* XCLocalSwiftPackageReference "CmuxSyntaxHighlighting" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Shared/CmuxSyntaxHighlighting;
@@ -19083,6 +19094,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CF00F00000000000000000A1 /* XCLocalSwiftPackageReference "CmuxFoundation" */;
 			productName = CmuxFoundation;
+		};
+		A19CDB200000000000000002 /* CmuxRemotes */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A19CDB200000000000000001 /* XCLocalSwiftPackageReference "CmuxRemotes" */;
+			productName = CmuxRemotes;
 		};
 		C01E00AA00000000000000A2 /* CmuxSyntaxHighlighting */ = {
 			isa = XCSwiftPackageProductDependency;

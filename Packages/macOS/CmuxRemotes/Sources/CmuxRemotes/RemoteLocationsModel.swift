@@ -109,10 +109,59 @@ public final class RemoteLocationsModel {
     /// Dismisses the shared error presentation.
     public func clearError() { lastError = nil }
 
+    /// Holds the machine's lifecycle gate until workspace creation has accepted the connection.
+    ///
+    /// - Parameters:
+    ///   id: Saved machine identity selected when the user requested creation.
+    ///   runtime: Verifies the persistent Instacloud runtime before opening SSH.
+    ///   confirmStart: Explicit user consent to start an intentionally stopped machine.
+    ///   create: Creates the workspace using the prepared SSH alias; never called on failure.
+    /// - Returns: False when the user cancels starting the machine.
+    /// - Throws: Identity, lifecycle, runtime, transport, or workspace creation errors.
+    func withConnection(
+        to id: UUID,
+        runtime: any RemoteRuntimeServicing,
+        confirmStart: @MainActor (RemoteProfile) async -> Bool,
+        create: @MainActor (RemoteProfile, String) async throws -> Void
+    ) async throws -> Bool {
+        if !isLoaded { try await load() }
+        guard let profile = configuration.profiles.first(where: { $0.id == id }) else {
+            throw RemoteConfigurationError.missingProfile
+        }
+        guard busy.insert(id).inserted else { throw RemoteConfigurationError.operationInProgress }
+        defer { busy.remove(id) }
+        let destination: String
+        switch profile.target {
+        case .ssh(let host):
+            destination = host
+        case .instacloud(let locator):
+            let status = try await provider.status(locator)
+            states[id] = RemoteMachineState(status: status)
+            if status.isStopped {
+                guard await confirmStart(profile) else { return false }
+                try await changeRunningWhileOwned(true, id: id, locator: locator)
+            } else if !status.isRunning {
+                throw InstacloudError.machineNotRunning
+            }
+            try await runtime.verifyMachine(locator, expectedDigest: nil)
+            destination = try await provider.prepareSSH(locator)
+        }
+        // Start may have changed the durable reconnect flag. Pass the current profile.
+        guard let current = configuration.profiles.first(where: { $0.id == id }) else {
+            throw RemoteConfigurationError.missingProfile
+        }
+        try await create(current, destination)
+        return true
+    }
+
     private func changeRunning(_ running: Bool, id: UUID) async throws {
         let locator = try await cloudLocator(id)
         guard busy.insert(id).inserted else { throw RemoteConfigurationError.operationInProgress }
         defer { busy.remove(id) }
+        try await changeRunningWhileOwned(running, id: id, locator: locator)
+    }
+
+    private func changeRunningWhileOwned(_ running: Bool, id: UUID, locator: InstacloudLocator) async throws {
         do {
             // Verify before touching local lifecycle state, and the provider re-verifies before mutation.
             _ = try await provider.verify(locator, requireVolume: false)

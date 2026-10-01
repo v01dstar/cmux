@@ -18,6 +18,8 @@ public enum InstacloudError: Error, Equatable, Sendable {
     case missingCompute
     /// An existing machine lacks the required persistent volume.
     case missingVolume
+    /// The machine is transitioning or unavailable; workspace creation must not fall back locally.
+    case machineNotRunning
     /// Lifecycle polling exhausted its deadline without reaching the requested state.
     case transitionTimedOut
     /// Creation found a conflicting name before any create request was issued.
