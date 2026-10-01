@@ -1056,6 +1056,33 @@ impl BootstrapError {
 mod tests {
     use super::*;
 
+    /// Model the gateway closing its output when the local SSH input reaches
+    /// EOF. The remote command still needs EOF so a noninteractive read exits.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn instacloud_probe_preserves_gateway_output_and_remote_eof() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempfile::tempdir().unwrap();
+        let ssh = directory.path().join("ssh");
+        std::fs::write(&ssh, r#"#!/usr/bin/env python3
+import os, select, subprocess, sys
+if select.select([0], [], [], 0)[0] and os.read(0, 1) == b'':
+    sys.exit(0)
+destination = sys.argv.index('test.insta')
+command = ' '.join(sys.argv[destination + 1:])
+sys.exit(subprocess.call(['/bin/sh', '-c', command]))
+"#).unwrap();
+        std::fs::set_permissions(&ssh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut config = SshBootstrapConfig::defaults("test.insta");
+        config.ssh_binary = ssh.to_string_lossy().into_owned();
+        config.timeout = Duration::from_secs(5);
+        let bootstrapper = SshBootstrapper::new(config).unwrap();
+        let output = bootstrapper.run_remote_script("read value; printf complete").await.unwrap();
+        assert_eq!(output.status, 0);
+        assert_eq!(output.stdout, b"complete");
+    }
+
     /// A FIFO no writer ever opens. A fake ssh that ends in `exec < fifo`
     /// blocks in the shell's own open() forever, so the hang needs no second
     /// process; `exec /bin/sleep` here used to fail under full-suite fork
