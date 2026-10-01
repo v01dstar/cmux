@@ -606,10 +606,18 @@ impl SshBootstrapper {
     ) -> Result<RemoteOutput, BootstrapError> {
         let mut command = Command::new(&self.config.ssh_binary);
         self.configure_ssh_command(&mut command);
-        for argument in remote_arguments {
-            command.arg(argument);
+        if self.config.destination.ends_with(".insta") {
+            // The Instacloud gateway ends its output relay when local stdin
+            // closes. Keep that side open, while making a one-shot remote
+            // command observe EOF without depending on the gateway's stream.
+            command.arg(format!("{} </dev/null", remote_arguments.join(" ")));
+            command.stdin(Stdio::piped());
+        } else {
+            for argument in remote_arguments {
+                command.arg(argument);
+            }
+            command.stdin(Stdio::null());
         }
-        command.stdin(Stdio::null());
         self.run_child_with_timeout(command, timeout, None).await
     }
 
@@ -661,6 +669,9 @@ impl SshBootstrapper {
             }
         };
         let input = compressed_input.map(|path| (child.stdin.take(), compress_upload(path)));
+        // Child::wait closes any stdin still attached to the child. Retain the
+        // unused gateway pipe ourselves until output and exit have completed.
+        let _keep_input_open = child.stdin.take();
         let started = Instant::now();
         let completion = tokio::time::timeout(timeout, async {
             // Drain both pipes concurrently so either stream can fill without
