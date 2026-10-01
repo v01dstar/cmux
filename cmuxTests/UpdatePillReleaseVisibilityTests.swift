@@ -845,9 +845,9 @@ struct NotificationsPopoverAnchorPolicyTests {
         NotificationsAnchorRegistry.shared.register(anchor)
         anchor.isHidden = true
 
-        #expect(
-            NotificationsAnchorRegistry.shared.visibleAnchor(in: window) == nil,
-            "A hidden titlebar accessory anchor must not be selected for keyboard-opened notifications."
+        let selectedAnchor = NotificationsAnchorRegistry.shared.closestAnchor(
+            in: window, to: NSPoint(x: anchor.frame.midX, y: anchor.frame.midY)
         )
+        #expect(selectedAnchor == nil, "A hidden titlebar accessory anchor must not be selected for keyboard-opened notifications.")
     }
 }
