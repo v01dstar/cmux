@@ -410,6 +410,32 @@ import Testing
         #expect(merged["CMUX_DEV_AUTH_REPLACE_SESSION"] == nil)
     }
 
+    @Test func localDevelopmentDoesNotReadOrInjectDogfoodCredentials() {
+        var reads = 0
+        let merged = MacAuthComposition.environmentWithDogfoodAutoSignIn(
+            [
+                "CMUX_DEV_AUTO_SIGN_IN": "0",
+                "CMUX_UITEST_STACK_EMAIL": "dummy@example.com",
+                "CMUX_UITEST_STACK_PASSWORD": "dummy",
+                "CMUX_DOGFOOD_STACK_EMAIL": "dummy@example.com",
+                "CMUX_DOGFOOD_STACK_PASSWORD": "dummy",
+                "CMUX_DEV_AUTH_CREDENTIALS_RESOLVED": "1",
+                "CMUX_DEV_AUTH_REPLACE_SESSION": "1",
+                "UNRELATED": "preserved",
+            ],
+            secretFilePaths: ["/unused-secret"],
+            readFile: { _ in reads += 1; return nil }
+        )
+        #expect(reads == 0)
+        #expect(merged["CMUX_UITEST_STACK_EMAIL"] == nil)
+        #expect(merged["CMUX_UITEST_STACK_PASSWORD"] == nil)
+        #expect(merged["CMUX_DOGFOOD_STACK_EMAIL"] == nil)
+        #expect(merged["CMUX_DOGFOOD_STACK_PASSWORD"] == nil)
+        #expect(merged["CMUX_DEV_AUTH_CREDENTIALS_RESOLVED"] == nil)
+        #expect(merged["CMUX_DEV_AUTH_REPLACE_SESSION"] == nil)
+        #expect(merged["UNRELATED"] == "preserved")
+    }
+
     @Test func injectsNothingWhenNoCredentialsAvailable() {
         let merged = MacAuthComposition.environmentWithDogfoodAutoSignIn(
             ["HOME": "/Users/test"],

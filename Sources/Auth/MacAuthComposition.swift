@@ -314,6 +314,17 @@ struct MacAuthComposition {
         secretFilePaths: [String]? = nil,
         readFile: ((String) -> String?)? = nil
     ) -> [String: String] {
+        // Explicit local development must not read team secret files or inherit
+        // auto-login credentials from the terminal that launched the tagged app.
+        if environment["CMUX_DEV_AUTO_SIGN_IN"] == "0" {
+            var local = environment
+            for key in ["CMUX_UITEST_STACK_EMAIL", "CMUX_UITEST_STACK_PASSWORD",
+                        "CMUX_DOGFOOD_STACK_EMAIL", "CMUX_DOGFOOD_STACK_PASSWORD",
+                        "CMUX_DEV_AUTH_CREDENTIALS_RESOLVED", "CMUX_DEV_AUTH_REPLACE_SESSION"] {
+                local[key] = nil
+            }
+            return local
+        }
         let resolver: DebugDogfoodCredentialResolver
         if let readFile {
             resolver = DebugDogfoodCredentialResolver(

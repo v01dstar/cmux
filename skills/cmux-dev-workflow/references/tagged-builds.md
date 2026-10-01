@@ -6,12 +6,27 @@ For the local backend used by outside contributors:
 
 ```bash
 CMUX_DEV_BACKEND_MODE=local ./scripts/reload.sh --tag <tag>
-CMUX_DEV_BACKEND_MODE=local ./scripts/reload.sh --tag <tag> --launch
+./scripts/reload.sh --tag <tag> --local-only --launch
 CMUX_DEV_BACKEND_MODE=local ./scripts/reload.sh --tag <tag> --build-only
 ```
 
 Without `CMUX_DEV_BACKEND_MODE=local`, tagged builds require the shared dev backend
 from a cmuxterm-hq checkout. See [contributor setup](../../../CONTRIBUTING.md#getting-started).
+
+`--local-only` also selects the local backend, disables automatic team-account
+sign-in and Cloud dogfood defaults, and requires no team credentials. Use it for
+local terminal and independent SSH/provider integration development. It cannot
+be combined with `--prod-auth`, `--credentials-file`, `--auth-profile`, or
+`--expected-account`. Ordinary `--launch` keeps the authenticated dogfood gate;
+`CMUX_DEV_BACKEND_MODE=local` alone only changes backend routing.
+
+For Instacloud runtime testing from a public fork, set
+`CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY=https://github.com/<owner>/cmux.git`
+when running reload. The source must contain the bundled TUI client's exact
+commit; the runtime verifies the actual binary identity. Reload preserves the
+override for tagged launches and Finder launches, and clears it on the next
+reload when omitted. A tagged launch from Codex retains `CODEX_THREAD_ID` so
+provider commands use agent policy; the thread identity is not saved in the app.
 
 A normal reload builds, then terminates the running app with the same tag; `--launch`
 also opens the replacement. `--build-only` validates a separately staged bundle

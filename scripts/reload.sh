@@ -31,6 +31,7 @@ CMUX_IROH_V2_FORCE_RELAY_VALUE="0"
 CMUX_AUTH_WWW_ORIGIN_VALUE=""
 CMUX_WWW_ORIGIN_VALUE=""
 PROD_AUTH=0
+LOCAL_ONLY=0
 AUTH_CREDENTIALS_FILE=""
 AUTH_PROFILE=""
 AUTH_EXPECTED_ACCOUNT=""
@@ -909,6 +910,9 @@ Options:
                          Without it, tagged builds use the shared dev backend, which
                          needs a cmuxterm-hq checkout. Outside one, set
                          CMUX_DEV_BACKEND_MODE=local to use http://localhost:<port>.
+  --local-only           Use local backend endpoints without team credentials or
+                         automatic sign-in. Disables Cloud dogfood defaults.
+                         Cannot be combined with authentication options.
   --credentials-file <path>
                          Bake only the path to a current-user-owned 0600 auth file.
                          The credential values never enter argv, Info.plist, or
@@ -1252,6 +1256,10 @@ while [[ $# -gt 0 ]]; do
       PROD_AUTH=1
       shift
       ;;
+    --local-only)
+      LOCAL_ONLY=1
+      shift
+      ;;
     --credentials-file)
       AUTH_CREDENTIALS_FILE="${2:-}"
       if [[ -z "$AUTH_CREDENTIALS_FILE" ]]; then
@@ -1335,10 +1343,22 @@ if [[ "$BUILD_ONLY" -eq 1 && "$NAME_SET" -eq 1 && "$APP_NAME" == "$BASE_APP_NAME
   exit 1
 fi
 
-# A tagged launch is a dogfood surface, so it must have an explicit identity
+# Local development is explicit and never resolves team credentials. Keep this
+# separate from authenticated dogfood, including when reusing a tagged artifact.
+if [[ "$LOCAL_ONLY" -eq 1 ]]; then
+  if [[ "$PROD_AUTH" -eq 1 || -n "$AUTH_PROFILE" || -n "$AUTH_CREDENTIALS_FILE" || -n "$AUTH_EXPECTED_ACCOUNT" ]]; then
+    echo "error: --local-only cannot be combined with authentication options" >&2
+    exit 1
+  fi
+  export CMUX_DEV_BACKEND_MODE=local CMUX_DEV_CLOUD_ENABLED=0
+  unset CMUX_DEV_BACKEND_URL CMUX_AUTH_CREDENTIALS_FILE CMUX_DEV_AUTH_PROFILE CMUX_DEV_AUTH_REPLACE_SESSION
+  unset CMUX_DOGFOOD_STACK_EMAIL CMUX_DOGFOOD_STACK_PASSWORD CMUX_UITEST_STACK_EMAIL CMUX_UITEST_STACK_PASSWORD
+fi
+
+# An authenticated tagged launch must have an explicit identity
 # before the app is started.  Keeping this gate here covers agents that call
 # reload.sh directly instead of the higher-level dev-setup wrapper.
-if [[ "$LAUNCH" -eq 1 && -n "$TAG" && -z "$AUTH_PROFILE" ]]; then
+if [[ "$LAUNCH" -eq 1 && "$LOCAL_ONLY" -eq 0 && -n "$TAG" && -z "$AUTH_PROFILE" ]]; then
   AUTH_PROFILE="personal"
   if [[ -z "$AUTH_CREDENTIALS_FILE" ]]; then
     for candidate in "${HOME:-}/.secrets/cmuxterm-dev.env" "${HOME:-}/.secrets/cmux.env"; do
@@ -1447,6 +1467,11 @@ CMUX_IROH_V2_BASE_URL_VALUE="${CMUX_IROH_V2_BASE_URL:-https://cmux-v2-developmen
 CMUX_IROH_V2_FORCE_RELAY_VALUE="${CMUX_IROH_V2_FORCE_RELAY:-0}"
 CMUX_AUTH_WWW_ORIGIN_VALUE="$CMUX_DEV_ORIGIN"
 CMUX_WWW_ORIGIN_VALUE="$CMUX_DEV_ORIGIN"
+if [[ "$LOCAL_ONLY" -eq 1 ]]; then
+  CMUX_DEV_API_BASE_URL_VALUE="$CMUX_DEV_ORIGIN"
+  CMUX_IROH_BROKER_BASE_URL_VALUE="$CMUX_DEV_ORIGIN"
+  CMUX_IROH_V2_BASE_URL_VALUE="$CMUX_DEV_ORIGIN"
+fi
 if [[ "$PROD_AUTH" -eq 1 ]]; then
   if [[ -n "${CMUX_DEV_API_BASE_URL:-}" && "$CMUX_DEV_API_BASE_URL" != "https://cmux.com" ]]; then
     echo "error: --prod-auth cannot use API origin '$CMUX_DEV_API_BASE_URL'; production builds must use https://cmux.com" >&2
@@ -1953,6 +1978,17 @@ if [[ -n "$TAG" && "$APP_NAME" != "$SEARCH_APP_NAME" ]]; then
         echo "$CMUX_DEBUG_LOG" > /tmp/cmux-last-debug-log-path || true
       fi
       /usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" "$INFO_PLIST" 2>/dev/null || true
+      # Do not retain a previous authenticated launch's injection metadata.
+      for auth_key in CMUX_AUTH_ENVIRONMENT CMUX_AUTH_CREDENTIALS_FILE CMUX_DEV_AUTH_PROFILE CMUX_DEV_AUTH_REPLACE_SESSION CMUX_DOGFOOD_STACK_EMAIL CMUX_DOGFOOD_STACK_PASSWORD CMUX_UITEST_STACK_EMAIL CMUX_UITEST_STACK_PASSWORD; do
+        /usr/libexec/PlistBuddy -c "Delete :LSEnvironment:${auth_key}" "$INFO_PLIST" 2>/dev/null || true
+      done
+      set_plist_env "$INFO_PLIST" CMUX_DEV_AUTO_SIGN_IN "$((1 - LOCAL_ONLY))"
+      # A fork's remote runtime must fetch the same public commit as its client.
+      # Clear stale overrides when returning to the normal upstream build.
+      /usr/libexec/PlistBuddy -c 'Delete :LSEnvironment:CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY' "$INFO_PLIST" 2>/dev/null || true
+      if [[ -n "${CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY:-}" ]]; then
+        set_plist_env "$INFO_PLIST" CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY "$CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY"
+      fi
       set_plist_url_scheme "$INFO_PLIST" "$CMUX_AUTH_CALLBACK_SCHEME_VALUE"
       set_plist_env "$INFO_PLIST" CMUX_BUNDLE_ID "$BUNDLE_ID"
       set_plist_env "$INFO_PLIST" CMUXD_UNIX_PATH "$CMUXD_SOCKET"
@@ -2217,6 +2253,7 @@ if [[ "$LAUNCH" -eq 1 ]]; then
     -u CMUX_AUTH_CREDENTIALS_FILE
     -u CMUX_DEV_AUTH_PROFILE
     -u CMUX_DEV_AUTH_REPLACE_SESSION
+    -u CMUX_DEV_AUTO_SIGN_IN
     -u CMUX_DOGFOOD_STACK_EMAIL
     -u CMUX_DOGFOOD_STACK_PASSWORD
     -u CMUX_UITEST_STACK_EMAIL
@@ -2245,6 +2282,7 @@ if [[ "$LAUNCH" -eq 1 ]]; then
     LAUNCH_AUTH_CALLBACK_SCHEME="cmux-dev-${TAG_SLUG}"
   fi
   TAG_LAUNCH_ENV=(
+    CMUX_DEV_AUTO_SIGN_IN="$((1 - LOCAL_ONLY))"
     CMUX_TAG="${TAG_SLUG:-}"
     CMUX_BUNDLE_ID="$BUNDLE_ID"
     CMUX_AUTH_CALLBACK_SCHEME="$LAUNCH_AUTH_CALLBACK_SCHEME"
@@ -2268,6 +2306,14 @@ if [[ "$LAUNCH" -eq 1 ]]; then
     CMUX_IROH_V2_BASE_URL="$CMUX_IROH_V2_BASE_URL_VALUE"
     CMUX_IROH_V2_FORCE_RELAY="$CMUX_IROH_V2_FORCE_RELAY_VALUE"
   )
+  if [[ -n "${CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY:-}" ]]; then
+    TAG_LAUNCH_ENV+=(CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY="$CMUX_REMOTES_RUNTIME_SOURCE_REPOSITORY")
+  fi
+  # Preserve agent request identity for automated provider tests. Do not bake
+  # the thread into the artifact: a later human launch has its own identity.
+  if [[ -n "${CODEX_THREAD_ID:-}" ]]; then
+    TAG_LAUNCH_ENV+=(CODEX_THREAD_ID="$CODEX_THREAD_ID")
+  fi
   if [[ "$PROD_AUTH" -eq 1 ]]; then
     TAG_LAUNCH_ENV+=(CMUX_AUTH_ENVIRONMENT=production)
   fi
